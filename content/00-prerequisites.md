@@ -35,8 +35,8 @@ Talking points:
 
 - Run `/version` (or equivalent) and note the version. Reference docs in [Resources](#resources) for the minimum version this course assumes.
 - Run `/update` to make sure you're on the latest.
-- Check that the slash commands this course leans on are available: `/agent`, `/skills`, `/mcp`, `/env`, `/diff`, `/review`, `/add-dir` / `/list-dirs`, `/context`, `/session`.
-- Confirm Copilot CLI access for your account — note quota / premium request consumption considerations and where to check them.
+- Check that the slash commands this course leans on are available: `/agent`, `/skills`, `/mcp`, `/env`, `/diff`, `/review`, `/add-dir` / `/list-dirs`, `/context`, `/session`, `/init`, `/plan`, `/fleet`, `/delegate`, `/research`, `/lsp`, `/plugin`.
+- Confirm Copilot CLI access for your account.
 - (Optional) note any organization policies that gate access to Copilot CLI features.
 
 ## Verifying AssetTrack is ready
@@ -70,7 +70,7 @@ Next, [start a real conversation with the codebase][next-lesson].
 |  | [Next: Getting started with Copilot CLI →][next-lesson] |
 |:--|--:|
 
-[next-lesson]: ./01-getting-started-with-copilot-cli.md
+[next-lesson]: ./01-working-with-copilot-cli.md
 [legacy-app]: https://github.com/geektrainer/legacy-app
 [copilot-cli-docs]: https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli
 [copilot-cli-repo]: https://github.com/github/copilot-cli
