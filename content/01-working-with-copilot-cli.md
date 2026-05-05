@@ -7,96 +7,186 @@ Before you can drive Copilot CLI well, it helps to know what it actually is. Thi
 
 ## What you will learn
 
-- What an AI agent is, conceptually, and how that differs from chat-in-IDE.
-- How the Copilot CLI harness works under the hood: the agent loop, the tool surface, the approval gate, and the session lifecycle.
-- The basic mechanics you'll use every day: `/model`, the trust prompt, per-tool approvals, modes, and `/context`.
-- That **bring-your-own-key (BYOK)** is supported for Copilot CLI, when it matters, and how it's wired up — even though we won't run an exercise on it in this course.
-- Where everything else (instructions, planning, custom agents, `/delegate`, skills, LSP, MCP, `/research`, plugins) lives in later sections.
+In this lesson, you will learn:
+
+- how requests are processed by AI agents, including GitHub Copilot CLI.
+- what an AI agent is and how it that differs from chatting with an AI tool.
+- how the Copilot CLI harness works under the hood.
+- the core mechanics you'll use every day.
 
 ## Scenario
 
-> [!NOTE]
-> **Starting state**: a clean fork of [`legacy-app`][legacy-app] open in a Codespace (or locally), with Copilot CLI installed per [Section 0][previous-lesson]. Both exercises are **read-only / configuration-only** — no source-code changes.
+You're a developer who recently joined Contoso Industries and inherited **AssetTrack** — a Spring Boot 2.7 / Java 11 / Bootstrap 3 / jQuery internal asset-tracking app. Before changing anything, you want to understand what Copilot CLI is doing on your behalf, and develop the muscle memory for steering it.
 
-You're a developer who recently joined Contoso Industries and inherited **AssetTrack** — a Spring Boot 2.7 / Java 11 / Bootstrap 3 / jQuery internal asset-tracking app. Before changing anything, you want to understand what Copilot CLI is doing on your behalf, and get the muscle memory for steering it.
+## Understanding AI
 
-## Tech overview: Understanding AI agents
+Any prompt to GitHub Copilot, including Copilot CLI, goes through a set of steps before a response is generated. While much of this happens behind the scenes, you have several inputs into this flow. Ensuring Copilot has the right context at the right time is key to success with Copilot. At a high level, it follows a general flow:
 
-Talking points:
+- Understand the prompt.
+- Analyze the context.
+- With the context, determine the user's intent.
+- Generate a response.
+- Apply filters.
+- Send response to user.
 
-- What an "agent" is, in concrete terms: an LLM that runs in a loop, picks tools to call, observes the results, and keeps going until the task is done or it asks for input.
-- How that differs from chat-in-IDE: the agent owns the *steps*, not just the suggestions. It edits files, runs commands, fetches from the network, and chooses what to do next based on what it just observed.
-- What this changes about your job: you're reviewing decisions, not typing. The skills shift from "writing the code" to "scoping the task, gating the actions, and reviewing the diff."
-- Trade-offs of running an agent locally: it sees your filesystem, can run shell commands, and can make changes you didn't explicitly ask for. That's why the approval surface exists.
+Let's briefly walk through each of these.
 
-## Tech overview: Copilot CLI under the hood
+> ![IMPORTANT]
+> The flow highlighted above provides an overview of the approach Copilot will typically take. Internally, it may iterate between multiple steps as it works on providing the solution for the provided prompt. For example, it may generate an initial response, discover it doesn't meet the needs, and return back to analyzing context to improve its response.
 
-Talking points:
+### Understand the prompt
 
-- **Same harness as the Copilot cloud coding agent.** The CLI is the local synchronous surface; the cloud agent (covered in [Section 4][s04]) is the async surface. Same loop, same tools, different runner.
-- **The agent loop**:
-  1. You enter a prompt.
-  2. Copilot assembles context — your prompt plus combined instruction files (covered in [Section 2][s02]) plus prior conversation.
-  3. The model proposes a tool call (read a file, edit a file, run a shell command, query an MCP server, invoke a skill or subagent).
-  4. The CLI gates the tool call through the approval surface.
-  5. The tool runs; the result becomes the next observation.
-  6. Repeat until the task is done.
-- **The tool surface** (named here, deep dives later): file read/write, shell, MCP servers (covered in [Section 6][s06] and [Section 7][s07]), skills (covered in [Section 5][s05]), custom agents and `/fleet` parallel subagents (covered in [Section 3][s03]), `/delegate` to the cloud (covered in [Section 4][s04]), LSP (covered in [Section 6][s06]), `/research` (covered in [Section 6][s06]), plugins (covered in [Section 7][s07]).
-- **Approval surface and trust**:
-  - The trust prompt at session start: "do you trust the files in this folder?" Heuristic — don't launch Copilot CLI from `$HOME` or anywhere with secrets.
-  - Per-tool approval: yes / yes-for-session / no-with-feedback. Per-tool is the safe default for brownfield work.
-  - `--allow-tool` and `--allow-all-tools` for programmatic / scripted use; `/reset-allowed-tools` to clear.
-  - `/add-dir`, `/list-dirs`, `/cwd` for crossing folder boundaries safely.
-- **Picking a model with `/model`**. Default is Claude Sonnet 4.5; you can switch to Claude Sonnet 4 or GPT-5. When picks matter (model strengths on different kinds of work; mention briefly that all consume the same approval/permission flow).
-- **Modes**. Default ask/execute; **plan mode** (toggle with shift+tab) for plan-first work covered deeper in [Section 3][s03]; experimental autopilot for hands-off work — call out as experimental.
-- **Context management**. `/context` to inspect the token window; auto-compaction kicks in around 95% of the limit; `/compact` to trigger manually.
-- **Sessions**. `/session`, `/resume`, `/rename`, `/share`, `/new`. Sessions are first-class — you can pause, hand off, or resume.
+The prompt you send to Copilot is certainly the most obvious part of the flow with Copilot CLI. It's what you type into the dialog box, and what devs typically focus on when first working with an AI assistant. A good prompt should contain:
 
-> [!IMPORTANT]
-> **Bring-your-own-key (BYOK)** is supported for Copilot CLI in public preview. We won't run an exercise on it in this course, but it's important to know it exists.
->
-> - **Why it matters**: enterprise governance, compliance constraints (data residency, contractual model use), custom or fine-tuned models, or local-only development with [Ollama][ollama].
-> - **Supported providers**: OpenAI, Azure OpenAI, Anthropic, AWS Bedrock, Google AI Studio, xAI, Ollama, and any OpenAI-compatible endpoint.
-> - **How it's wired up**: organization or enterprise admins add the keys under Copilot settings, then individuals select the resulting models. For local experimentation, the env-var pattern is `COPILOT_PROVIDER_BASE_URL`, `COPILOT_PROVIDER_API_KEY`, optionally `COPILOT_PROVIDER_TYPE` (e.g., `azure`), and `COPILOT_MODEL`.
-> - **Constraints**: models need to support tool/function calling and streaming for the harness to work well. Quality varies by provider/model.
-> - See [Using your own LLM models in GitHub Copilot CLI][byok-cli] and [Using your LLM provider API keys with Copilot][byok-admin].
+- What you're looking to build
+- Why you're trying to build it
+- How you're trying to build it
 
-## Exercise: First conversation with the AssetTrack codebase
+Short, single sentence prompts similar to "Add a new filter component to the products page" contain too much ambiguity. Ambiguity leads to code that, while technically accurate, doesn't genuinely meet the requirements set forth in the project. A more detailed prompt gives Copilot a better starting point when determining the appropriate strategy for generating its response:
 
-Talking points:
+```
+Add a new filter component to the products page. Users should be allowed to filter by category (a dropdown list) and availability (a toggle with the heading of "In stock"). Create the APIs, the Svelte component, and the necessary tests. 
+```
 
-- **Goal**: get an accurate, agent-produced picture of AssetTrack's architecture without opening any files yourself first. Watch the harness work.
-- **Files/areas touched**: none (read-only).
-- **Steps**:
-  - Launch `copilot` inside the fork. Accept the trust prompt for this session only the first time through.
-  - Ask Copilot to summarize the architecture: stack, modules, entry points.
-  - Ask it to trace a request from `DashboardController` through the service layer to `AssetRepository`.
-  - Ask it to call out tech-debt or risk areas it noticed.
-  - When it asks for permission to read files / run shell commands, observe the prompt and approve per-call (don't allow-all-tools yet).
-- **How to verify**: spot-check Copilot's claims against `src/main/java/com/contoso/assettracker/`. The summary should correctly identify Spring Boot 2.7, Thymeleaf, JDBC repositories, and the dashboard summary stats. No edits should have happened.
+> ![NOTE]
+> Large language models (LLMs) process and generate text as tokens. In the prompt above, it's very likely every word would be a single token as they're all relatively common in English and development. The one exception to this is *availability*, which might be broken down into its root *available* and the suffix *ility*. This type of breakdown allows for better understanding of the word and its meaning in context with the rest of the prompt. By and large you don't need to consider tokenization of prompts, responses, or other text considered by Copilot, but it can be helpful to better understand how Copilot is working on your request.
 
-## Exercise: Tour the harness
+### Analyze the context
 
-Talking points:
+Context is key throughout much of life, and when working with AI. While the more robust prompt in the section above provides a lot of direction to Copilot, there's still quite a bit that needs to be understood to ensure the response generated genuinely meets the needs of the project. Some questions that need to be answered include:
 
-- **Goal**: get hands-on with the basic mechanics — model picker, approval flow, modes, and context inspection — so you know what each lever does before you need it.
-- **Files/areas touched**: none (configuration only).
-- **Steps**:
-  - Run `/model` and switch between the available models. Note what each is good at; pick one to keep for the rest of the course.
-  - Trigger a tool-approval prompt by asking Copilot to run a read-only shell command (e.g., `mvn dependency:tree` or `git log --oneline -n 20`). Practice the **yes-for-session** option for that command.
-  - Press `shift+tab` to cycle into **plan mode**. Ask a small question and observe how the response shape changes (it asks clarifying questions and produces a plan rather than running tools). Cycle back out.
-  - Run `/context` to see how much of the token window you've used so far.
-  - Run `/env` to see the loaded instructions, MCP servers, skills, agents, plugins, and LSPs (most will be empty for now — that's by design).
-- **How to verify**: `/model` shows your chosen model; the tool you allow-for-session no longer prompts; plan mode toggled cleanly; `/context` and `/env` returned without error.
+- What programming language are we using? JavaScript or TypeScript?
+- What tools are we using for tests? For unit tests? Are we using end to end tests? And, if so, what framework is being used there?
+- Where's the products page in the project?
+- Where's the API? How is that written? Are tests required there as well?
+- What conventions are followed? Are there lint rules?
+
+We always need to ensure Copilot is able to find the correct answers to these questions. Copilot is able to explore the project to find and follow existing patterns. But this approach can be inefficient on larger projects, especially when you may have portions of your codebase which doesn't follow the guidelines set forth by your team.
+
+This is where your AI infrastructure - your instructions files, agent skills, custom agents and MCP servers - helps guide Copilot by providing curated context it can use when generating responses. Between your prompt, your code, and your project's AI infrastructure, Copilot will have the understanding of how to work in your environment.
+
+There are numerous tools available to you to help guide Copilot, which we will explore in later modules in the course.
+
+### Determine the user's intent
+
+You'll notice that determining the intent of your prompt is the third step in this flow. This might feel a bit curious. After all, shouldn't this be the first thing Copilot does? But as highlighted previously, even our relatively detailed prompt instructing Copilot of what to build and how to build it left a fair amount of ambiguity. Only after examining the prompt and the context is Copilot able to build out an effective plan for fulfilling the request.
+
+At this point, Copilot may ask follow-up questions depending on its level of certainty with the approach its about to take to fulfilling the request. As always, you can always add direction to your prompt or other forms of context (e.g. your instructions files) to be more likely to ask clarifying questions.
+
+> ![NOTE]
+> Copilot will often automatically create a plan when approaching a task. If you wish to formalize this step, and iterate on the plan before asking Copilot to begin building the solution, you can use [`/plan` mode][plan-mode].
+
+### Generate a response
+
+It's now time for Copilot to begin generating a response! This could include creating code or determining a particular task should be run, like calling a skill or running tests. This could be considered the draft version of the response Copilot generates, as there's still one more step before it actually performs any actions.
+
+### Apply filters
+
+Built into Copilot are various filters, including responsible AI usage, a [light security filter][security-filter], and, if enabled, [filtering code that matches publicly available code][public-code-filter]. This ensures responsible use of Copilot, and further improves the quality of code.
+
+> ![NOTE]
+> The security filter built into GitHub Copilot is not built as a replacement for proper security reviews, including human and automated tool reviews.
+
+### Send response to the user
+
+Now it's time for Copilot to do its work! After running through all of the above, Copilot begins generating the necessary code and performing the required tasks. During this process it will determine if any changes to the content or its approach need to be made, potentially returning to earlier steps in the flow.
+
+Throughout the entire process, you can send additional messages to Copilot to steer it or further refine your request. Copilot will consider those prompts, again running through the same flow as needed.
+
+And, from here, you will iterate! You'll validate the code and the completed operations, ensuring everything looks good. You'll make additional requests, run more tests, create commits, pull requests, and your standard developer flow.
+
+## An agent's toolkit
+
+An AI agent is, in concrete terms, an LLM that runs in a loop, picks tools to call, observes the results, and iterates autonomously or as directed. Unlike a standard chat request of Copilot which reads input and generates code, Copilot agents can run scripts, access files, and perform other, potentially dangerous, operations. As a result, Copilot will always ask for permission before performing any tasks - including just launching the tool. [Tools available to Copilot CLI][available-tools] include:
+
+| Tool | Description |
+|---|---|
+| `view` | Read a file or list a directory's contents. |
+| `edit` | Modify an existing file via string replacement. |
+| `create` | Create a new file. |
+| `bash` / `powershell` | Execute shell commands in your local environment. |
+| `grep` (or `rg`) | Search file contents for text or patterns. |
+| `glob` | Find files matching a name or path pattern. |
+| `web_fetch` | Fetch and parse content from a URL. |
+| `task` | Spawn a subagent (e.g., `explore`, `general-purpose`) to handle a focused piece of work in its own context. |
+| `skill` | Invoke a custom skill that bundles instructions or scripts for a specialized job. |
+| MCP server tools | Tools provided by built-in or configured MCP servers — e.g., the GitHub MCP server for issues and pull requests. |
+
+### Managing permissions
+
+When you start Copilot CLI for the first time in a folder, Copilot will prompt you for read access to the folder. You can choose to deny permissions (which will cause Copilot to exit), to allow for that session, or to approve and save that choice for all future sessions. In addition to access to the folder, Copilot will request permissions before running any potentially unsafe operations. You can choose to allow or deny these calls individually, approve for the current session, or to always allow the tool.
+
+> ![NOTE]
+> A [session][session-docs] is the conversation between launching `copilot` and exiting. Sessions are persisted, so you can pick one back up later with `/resume` or `copilot --continue`. Note that "approve for the rest of this session" approvals only apply to the current run; they reset when you exit and resume.
+
+Copilot offers many [options to control permissions][permissions-docs], including:
+
+| Slash command | CLI switch | Description |
+|---|---|---|
+| `/add-dir PATH` | `--add-dir=PATH` | Grant the agent file access to an additional directory beyond the launch folder. |
+| `/list-dirs` | — | Display the directories currently allowed for file access. |
+| `/cwd [PATH]`, `/cd [PATH]` | — | Change (or display) the working directory without restarting the session. |
+| — | `--allow-tool=TOOL` | Pre-approve specific tools (e.g., `shell(git:*)`, `write`, `MyMCP`) so they run without prompting. |
+| — | `--deny-tool=TOOL` | Block specific tools entirely; deny rules win over allow rules. |
+| `/reset-allowed-tools` | — | Clear all session-level tool approvals you've granted. |
+| `/allow-all`, `/yolo` | `--allow-all`, `--yolo` | Enable all permissions — tools, paths, and URLs. Use with care. |
+| — | `--allow-all-tools` | Auto-approve every tool call (required for programmatic / scripted runs), but paths must still be approved. |
+| — | `--allow-all-paths` | Skip path verification and allow access to any file location. |
+| — | `--allow-url=URL` / `--deny-url=URL` | Allow or block specific URLs/domains for `web_fetch` and shell network calls. |
+
+> ![WARNING]
+> Enabling all tools (commonly referred to as **YOLO mode**) gives Copilot unrestricted ability to read, modify, and execute files, run shell commands, and call out to MCP servers without asking. A misinterpreted prompt or a prompt-injection attack via fetched content can result in data loss, leaked secrets, or destructive commands. Only use YOLO mode in [trusted, sandboxed environments][risk-mitigation] such as a container or disposable VM, and never in a directory containing credentials or unreviewed code.
+
+## Exercise: Exploring the project
+
+As you likely expected, there's quite a bit going on behind the scenes with Copilot CLI, and a host of options we have for controlling how it behaves. Let's make a couple of requests of Copilot CLI, focusing on how Copilot fulfills the requests we make of it and the tools it calls.
+
+1. Return to your codespace. If you already closed it, navigate to your repository on GitHub.com, select **Code** > **Codespaces**, then select your existing codespace.
+2. Open a terminal window by selecting <kbd>Ctl</kbd> + <kbd>`</kbd>.
+3. Start Copilot CLI by running the following command in the terminal window:
+
+    ```bash
+    copilot
+    ```
+
+4. When prompted to trust the folder, select **2. Yes, and remember this folder for future sessions.**
+
+> ![NOTE]
+> If you choose to approve access for all future sessions, the folder is listed in Copilot's local configuration, stored in **copilot/config.json** in your root user folder by default.
+
+5. If prompted to determine [session sync][session-sync], use the right arrow to highlight **This repository** and select <kbd>Enter</kbd>.
+6. Send the following prompt to Copilot CLI to ask about the project:
+
+    ```
+    Tell me about this project
+    ```
+
+7. Make note of the tool calls to **Read** to read files and **List directory** to explore the available files. Because you already granted permissions to Copilot to read the folder in the prior step, these are run without having to ask for permissions.
+8. Send the following prompt to list any GitHub issues filed for the repo:
+
+    ```
+    Are there any issues currently open on this GitHub repo?
+    ```
+
+9. Note that again Copilot didn't ask permissions. This is because the read-only MCP server is automatically built into Copilot CLI. Also note the call to **MCP:github-mcp-server** took place automatically, as Copilot determined it was the correct tool to call.
+10. Send the following prompt to create issues based on the todos in the README file:
+
+    ```
+    Can you create a set of short issues based on the todos you see in the readme?
+    ```
+
+    Because you are now requesting Copilot make changes to your repository in the form of creating issues, it now asks for permissions. Also note the heading for the dialog, which says **Permission request (2 remaining)**.
+
+    Selecting **Yes** will allow for the first call only, and the next two will require separate approvals.
 
 ## Summary
 
 You've now:
 
-- Internalized the agent loop and the tool surface.
-- Practiced the approval flow on a real read-only command.
-- Picked a model, exercised plan mode, and seen what the harness loads on startup.
-- Learned BYOK as a concept so you know where to reach when you need provider control.
+- Walked through how requests are processed by AI agents, including GitHub Copilot CLI.
+- Seen what makes an AI agent different from chatting with an AI tool.
+- Explored how the Copilot CLI harness works under the hood — its toolkit and permission model.
+- Practiced the core mechanics you'll use every day, from approvals to plan mode.
 
 Next, you'll **build the AI infrastructure** — explore AssetTrack with Copilot, fill the documentation gaps, and codify what you learn as instructions files in [Section 2][next-lesson].
 
@@ -127,3 +217,11 @@ Next, you'll **build the AI infrastructure** — explore AssetTrack with Copilot
 [byok-admin]: https://docs.github.com/en/copilot/how-tos/administer-copilot/manage-for-enterprise/use-your-own-api-keys
 [legacy-app]: https://github.com/geektrainer/legacy-app
 [ollama]: https://ollama.com
+[plan-mode]: https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/overview#use-plan-mode
+[public-code-filter]: https://docs.github.com/en/copilot/responsible-use/copilot-cli#public-code
+[security-filter]: https://docs.github.com/en/copilot/responsible-use/copilot-cli#security-measures-for-github-copilot-cli
+[available-tools]: https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#tool-availability-values
+[permissions-docs]: https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#tool-permission-patterns
+[session-docs]: https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/overview#resume-an-interactive-session
+[session-sync]: https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/chronicle
+[risk-mitigation]: https://docs.github.com/en/copilot/concepts/agents/copilot-cli/about-copilot-cli#risk-mitigation
