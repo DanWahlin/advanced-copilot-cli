@@ -123,6 +123,7 @@ Copilot offers many [options to control permissions][permissions-docs], includin
 
 | Slash command | CLI switch | Description |
 |---|---|---|
+| `/model [MODEL]`, `/models` | `--model=MODEL` | Display available models, or switch the active model for the session. |
 | `/add-dir PATH` | `--add-dir=PATH` | Grant the agent file access to an additional directory beyond the launch folder. |
 | `/list-dirs` | — | Display the directories currently allowed for file access. |
 | `/cwd [PATH]`, `/cd [PATH]` | — | Change (or display) the working directory without restarting the session. |
@@ -155,21 +156,29 @@ As you likely expected, there's quite a bit going on behind the scenes with Copi
 > If you choose to approve access for all future sessions, the folder is listed in Copilot's local configuration, stored in **copilot/config.json** in your root user folder by default.
 
 5. If prompted to determine [session sync][session-sync], use the right arrow to highlight **This repository** and select <kbd>Enter</kbd>.
-6. Send the following prompt to Copilot CLI to ask about the project:
+6. Display the list of models available to you by entering the following switch and selecting <kbd>Enter</kbd>:
+
+    ```
+    /models
+    ```
+
+7. Make note of the list of available models. Note that the this list will vary depending on the current plan for Copilot you have access to and, if on a business account, what your administrators have chosen to make available.
+8. Select **auto** from the list and select <kbd>Enter</kbd>.
+9. Send the following prompt to Copilot CLI to ask about the project:
 
     ```
     Tell me about this project
     ```
 
-7. Make note of the tool calls to **Read** to read files and **List directory** to explore the available files. Because you already granted permissions to Copilot to read the folder in the prior step, these are run without having to ask for permissions.
-8. Send the following prompt to list any GitHub issues filed for the repo:
+10. Make note of the tool calls to **Read** to read files and **List directory** to explore the available files. Because you already granted permissions to Copilot to read the folder in the prior step, these are run without having to ask for permissions.
+11. Send the following prompt to list any GitHub issues filed for the repo:
 
     ```
     Are there any issues currently open on this GitHub repo?
     ```
 
-9. Note that again Copilot didn't ask permissions. This is because the read-only MCP server is automatically built into Copilot CLI. Also note the call to **MCP:github-mcp-server** took place automatically, as Copilot determined it was the correct tool to call.
-10. Send the following prompt to create issues based on the todos in the README file:
+12. Note that again Copilot didn't ask permissions. This is because the read-only MCP server is automatically built into Copilot CLI. Also note the call to **MCP:github-mcp-server** took place automatically, as Copilot determined it was the correct tool to call.
+13. Send the following prompt to create issues based on the todos in the README file:
 
     ```
     Can you create a set of short issues based on the todos you see in the readme?
@@ -177,7 +186,35 @@ As you likely expected, there's quite a bit going on behind the scenes with Copi
 
     Because you are now requesting Copilot make changes to your repository in the form of creating issues, it now asks for permissions. Also note the heading for the dialog, which says **Permission request (2 remaining)**.
 
-    Selecting **Yes** will allow for the first call only, and the next two will require separate approvals.
+    Selecting **Yes** will allow for the first call only, and the next two will require separate approvals. **Yes, and don't ask again for `gh issue` in this repo (*path*)** will allow Copilot CLI to always call the `gh issue` CLI tool for this repository.
+
+> [!IMPORTANT]
+> Ensure you always consider the implications of granting Copilot or any AI tool permissions to perform actions on your behalf.
+
+14. For purposes of this exercise, select **2** by cursoring down to option 2 to allow Copilot CLI to call `gh issue` for this repository, then select <kbd>Enter</kbd>.
+15. Copilot CLI creates the issues!
+16. Display the summaries of the newly created issues by sending the following prompt to Copilot CLI:
+
+    ```
+    Show me summaries of the issues on this repository
+    ```
+
+17. Again, because Copilot CLI has read access via the GitHub MCP server, it automatically pulls down the issue summaries from the repository.
+18. Revoke Copilot's ability to create issues by using the following switch and selecting <kbd>Enter</kbd>:
+
+    ```
+    /reset-allowed-tools
+    ```
+
+19. Attempt to create another issue by sending the following prompt to Copilot CLI:
+
+    ```
+    Create an issue to add dark mode to the application.
+    ```
+
+20. Note how Copilot CLI prompts you for permissions to perform the action. Select <kbd>Esc</kbd> twice to exit out of the prompt.
+
+You explored how Copilot CLI uses tools behind the scenes, and how it requests permissions. You also saw how you can both grant and revoke permissions for Copilot CLI.
 
 ## Summary
 
@@ -186,7 +223,7 @@ You've now:
 - Walked through how requests are processed by AI agents, including GitHub Copilot CLI.
 - Seen what makes an AI agent different from chatting with an AI tool.
 - Explored how the Copilot CLI harness works under the hood — its toolkit and permission model.
-- Practiced the core mechanics you'll use every day, from approvals to plan mode.
+- Practiced a couple of core mechanics you'll use every day, from managing approvals to working with models.
 
 Next, you'll **build the AI infrastructure** — explore AssetTrack with Copilot, fill the documentation gaps, and codify what you learn as instructions files in [Section 2][next-lesson].
 
@@ -194,9 +231,14 @@ Next, you'll **build the AI infrastructure** — explore AssetTrack with Copilot
 
 - [About GitHub Copilot CLI][copilot-cli-docs]
 - [Using GitHub Copilot CLI][copilot-cli-howto]
-- [Using your own LLM models in GitHub Copilot CLI (BYOK)][byok-cli]
-- [Using your LLM provider API keys with Copilot (admin)][byok-admin]
-- [Legacy app source: `geektrainer/legacy-app`][legacy-app]
+- [Tool availability values][available-tools]
+- [Tool permission patterns][permissions-docs]
+- [Resume an interactive session][session-docs]
+- [Session sync (chronicle)][session-sync]
+- [Use plan mode][plan-mode]
+- [Risk mitigation and YOLO mode][risk-mitigation]
+- [Security measures for GitHub Copilot CLI][security-filter]
+- [Public code filtering][public-code-filter]
 
 ---
 
@@ -205,23 +247,13 @@ Next, you'll **build the AI infrastructure** — explore AssetTrack with Copilot
 
 [previous-lesson]: ./00-prerequisites.md
 [next-lesson]: ./02-building-ai-infrastructure.md
-[s02]: ./02-building-ai-infrastructure.md
-[s03]: ./03-planning-and-accessibility.md
-[s04]: ./04-enhancing-test-suite.md
-[s05]: ./05-agents-follow-standards.md
-[s06]: ./06-modernization-strategies.md
-[s07]: ./07-bringing-it-all-together.md
-[copilot-cli-docs]: https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli
-[copilot-cli-howto]: https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli
-[byok-cli]: https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-byok-models
-[byok-admin]: https://docs.github.com/en/copilot/how-tos/administer-copilot/manage-for-enterprise/use-your-own-api-keys
-[legacy-app]: https://github.com/geektrainer/legacy-app
-[ollama]: https://ollama.com
-[plan-mode]: https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/overview#use-plan-mode
-[public-code-filter]: https://docs.github.com/en/copilot/responsible-use/copilot-cli#public-code
-[security-filter]: https://docs.github.com/en/copilot/responsible-use/copilot-cli#security-measures-for-github-copilot-cli
-[available-tools]: https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#tool-availability-values
-[permissions-docs]: https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#tool-permission-patterns
-[session-docs]: https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/overview#resume-an-interactive-session
-[session-sync]: https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/chronicle
-[risk-mitigation]: https://docs.github.com/en/copilot/concepts/agents/copilot-cli/about-copilot-cli#risk-mitigation
+[copilot-cli-docs]: https://docs.github.com/copilot/concepts/agents/about-copilot-cli
+[copilot-cli-howto]: https://docs.github.com/copilot/how-tos/use-copilot-agents/use-copilot-cli
+[plan-mode]: https://docs.github.com/copilot/how-tos/copilot-cli/use-copilot-cli/overview#use-plan-mode
+[public-code-filter]: https://docs.github.com/copilot/responsible-use/copilot-cli#public-code
+[security-filter]: https://docs.github.com/copilot/responsible-use/copilot-cli#security-measures-for-github-copilot-cli
+[available-tools]: https://docs.github.com/copilot/reference/copilot-cli-reference/cli-command-reference#tool-availability-values
+[permissions-docs]: https://docs.github.com/copilot/reference/copilot-cli-reference/cli-command-reference#tool-permission-patterns
+[session-docs]: https://docs.github.com/copilot/how-tos/copilot-cli/use-copilot-cli/overview#resume-an-interactive-session
+[session-sync]: https://docs.github.com/copilot/how-tos/copilot-cli/use-copilot-cli/chronicle
+[risk-mitigation]: https://docs.github.com/copilot/concepts/agents/copilot-cli/about-copilot-cli#risk-mitigation
