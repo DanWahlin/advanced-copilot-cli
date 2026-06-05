@@ -3,11 +3,11 @@
 | [← Previous: Building an AI infrastructure][previous-lesson] | [Next: Shaping Copilot CLI's lifecycle with hooks →][next-lesson] |
 |:--|--:|
 
-Section 2 made AssetTrack more accessible. Now you need proof that lasts longer than one manual click-through. The next time someone touches the form, navigation, or dashboard, the test suite should raise a clear signal if something important breaks.
+Section 2 made AssetTrack more accessible. Now you need proof that lasts longer than one manual click-through. The next time someone touches the form, navigation, or dashboard, the test suite should raise a clear signal if something breaks.
 
-Your first job is to make that signal real. You'll ask Copilot CLI to scaffold a small Playwright suite, then treat the first failures as evidence instead of noise. Some failures will point to test setup. Some may expose real accessibility gaps. Your job is to tell the difference and make the smallest responsible fix.
+Your first job is to make that signal real. You'll ask Copilot CLI to scaffold a small Playwright suite, then treat the first failures as evidence instead of noise. Some failures will point to test setup. Some will expose real accessibility gaps. Your job is to tell the difference and make the smallest responsible fix.
 
-Then you'll stretch the workflow beyond one terminal. `/remote` lets you steer the active CLI session from GitHub.com or GitHub Mobile, while `/delegate` sends the larger test backfill to Copilot cloud agent. The goal is the rhythm developers actually need: test the fragile path, read the result, fix only what the evidence supports, and hand agents work with enough context that the pull request is reviewable.
+Then you'll stretch the workflow beyond one terminal. `/remote` lets you steer the active CLI session from GitHub.com or GitHub Mobile, while `/delegate` sends the larger test backfill to Copilot cloud agent. The pattern is simple: test the fragile path, read the result, fix only what the evidence supports, and give agents enough context that their pull requests are reviewable.
 
 <img src="images/03-test-backed-workflow.png" alt="Test-backed agent workflow showing Section 2 accessibility work flowing into Playwright tests, failure diagnosis, remote control, delegation, and pull request review" width="800"/>
 
@@ -25,13 +25,13 @@ In this lesson, you will learn:
 ## Scenario
 
 > [!NOTE]
-> **Starting state**: your fork contains the AI infrastructure from [Section 2][previous-lesson], including repository instructions, scoped instructions, issue and PR templates, and the `accessibility-updater` custom agent. If you used the agent to make accessibility updates, commit those changes before starting this section. If you only created and smoke-tested the agent but did not apply accessibility fixes, some Playwright tests may fail. That's useful information, not a disaster. Exercises target your fork only.
+> Starting state: your writable fork contains the AI infrastructure from [Section 2][previous-lesson], including repository instructions, scoped instructions, issue and PR templates, and the `accessibility-updater` custom agent. Do not start this section from a fresh clone of the upstream `GeekTrainer/legacy-app` repository because the delegation exercise needs a fork you can push to and Section 2 state the cloud agent can see. If you used the agent to make accessibility updates, commit those changes before starting this section. If you only created and smoke-tested the agent but did not apply accessibility fixes, some Playwright tests may fail. That's useful information, not a disaster. Exercises target your fork only.
 
-You're still working on **AssetTrack**, Contoso Industries' internal asset-tracking app. The app has a few backend smoke tests, but the UI has no browser test coverage yet. That leaves the team guessing when accessibility changes are made.
+You're still working on AssetTrack, Contoso Industries' internal asset-tracking app. The app has a few backend smoke tests, but the UI has no browser test coverage yet. That leaves the team guessing when accessibility changes are made.
 
 Playwright lets you test the app the way a person uses it: load a page, find controls by label, tab through links, and confirm the right content appears. Copilot CLI can help you get the first tests in place, but you still need to make the calls a developer would make. Is the test wrong? Is the app wrong? Is the environment broken?
 
-Once the first pass is working, the rest of the test backfill is a good candidate for delegation. It has concrete files, concrete commands, and a pull request you can review.
+Once the first pass is working, the rest of the test backfill is ready to delegate. It has concrete files, concrete commands, and a pull request you can review.
 
 ## Tech topics
 
@@ -66,20 +66,28 @@ In this exercise, you'll ask Copilot CLI to add the first Playwright tests for t
 
 1. Open your fork of `GeekTrainer/legacy-app` in a codespace.
 2. Open a terminal with <kbd>Ctrl</kbd> + <kbd>`</kbd>.
-3. Confirm dependencies are installed. The devcontainer normally runs `npm install && npm run install:all` when it is created. If you see missing package errors, run:
+3. Confirm you are working in the codespace or devcontainer for your fork. Section 0 set this up as the course path. AssetTrack needs Node, .NET, Python, Java, and Maven. The devcontainer installs those tools for you. If you run locally outside the devcontainer, use the setup guidance in the `legacy-app` README before continuing. Also confirm `origin` points to your writable fork, not the upstream `GeekTrainer/legacy-app` repository:
+
+    ```bash
+    git remote -v
+    ```
+
+    The fetch and push URLs should point to your fork. If they point to `GeekTrainer/legacy-app`, stop and open your fork instead, or add your fork as the push target before continuing.
+
+4. Confirm dependencies are installed. The devcontainer normally runs `npm install && npm run install:all` when it is created. If you see missing package errors, run:
 
     ```bash
     npm install
     npm run install:all
     ```
 
-4. Start the app from the repository root:
+5. Start the app from the repository root:
 
     ```bash
     npm run dev
     ```
 
-5. Wait for the services to start, then open the web app:
+6. Wait for the services to start, then open the web app:
 
     ```text
     http://localhost:4321
@@ -88,9 +96,9 @@ In this exercise, you'll ask Copilot CLI to add the first Playwright tests for t
     You should see the AssetTrack web UI before continuing.
 
 > [!NOTE]
-> In Codespaces, use the forwarded port URL for port 4321 if `http://localhost:4321` does not open from your browser. You can find it in the **Ports** tab.
+> In Codespaces, use the forwarded port URL for port 4321 if `http://localhost:4321` does not open from your browser. You can find it in the Ports tab. If you are using a local devcontainer outside Codespaces, make sure your devcontainer tool or VS Code forwards port 4321 to the host before relying on a browser check. If browser forwarding is unavailable, run `curl -I http://localhost:4321` inside the devcontainer and confirm it returns `HTTP/1.1 200 OK` before continuing.
 
-6. Stop the dev server with <kbd>Ctrl</kbd> + <kbd>C</kbd> before continuing.
+7. Stop the dev server with <kbd>Ctrl</kbd> + <kbd>C</kbd> before continuing.
 
 ### Phase 2: Inspect the current test setup
 
@@ -149,7 +157,7 @@ If Copilot misses the empty reporting tests folder or suggests putting Playwrigh
     Run npx playwright test --list and confirm the accessibility tests are discovered. If the command fails, fix only the Playwright setup.
     ```
 
-    A useful result names `npx playwright test --list`, reports at least one test under `tests/playwright/`, and does not require application source changes. If the command finds zero tests, stay in setup mode and fix the Playwright config or test file path before continuing.
+    The result should name `npx playwright test --list`, report at least one test under `tests/playwright/`, and avoid application source changes. If the command finds zero tests, stay in setup mode and fix the Playwright config or test file path before continuing.
 
 ### Phase 4: Add focused accessibility coverage
 
@@ -177,14 +185,14 @@ If Copilot misses the empty reporting tests folder or suggests putting Playwrigh
     Run the Playwright tests and summarize the result. If any tests fail, classify each failure as one of: test bug, app accessibility gap, or environment/startup issue. Do not change production code yet.
     ```
 
-3. Review the output. You may see form labels that are not associated with controls, keyboard focus problems, or service startup issues. A useful result includes the command run, how many tests were found, the pass/fail count, each failure category, and the next action Copilot recommends.
+3. Review the output. You may see form labels that are not associated with controls, keyboard focus problems, or service startup issues. The summary should include the command run, how many tests were found, the pass/fail count, each failure category, and the next action Copilot recommends.
 4. If the test setup is broken, keep the fix limited to the setup:
 
     ```text
     Fix only the Playwright setup or test code needed to make the tests run reliably. Do not change application source files yet. Keep the scope limited to playwright.config.ts, tests/playwright/**, and package files.
     ```
 
-5. If the failures point to real accessibility gaps, use the custom agent from Section 2 for a narrow follow-up fix. If Copilot does not automatically switch to the right agent, run `/agent`, select `accessibility-updater`, and then send the prompt:
+5. If the failures point to real accessibility gaps, use the custom agent from Section 2 for a narrow follow-up fix. Before switching agents, confirm your fork still has the Section 2 agent files and instructions. If the `accessibility-updater` agent is missing, return to Section 2 to recreate it before continuing, or make a direct narrow fix only if your instructor tells you to proceed without the custom agent. If Copilot does not automatically switch to the right agent, run `/agent`, select `accessibility-updater`, and then send the prompt:
 
     ```text
     Fix only the accessibility gaps identified by the failing Playwright tests. Keep the changes narrow: associate labels with their controls, add missing landmark labels if needed, and avoid visual redesigns. After the fix, rerun npm run test:e2e and summarize the before/after result.
@@ -208,16 +216,16 @@ Remote control lets you connect to a running Copilot CLI session from a browser 
 
 Remote control and delegation solve different problems:
 
-- **Remote control** steers the same active CLI session.
-- **Delegation** starts asynchronous work with Copilot cloud agent.
+- Remote control steers the same active CLI session.
+- Delegation starts asynchronous work with Copilot cloud agent.
 
-Remote control is handy when a task takes a while, such as installing Playwright browsers, starting several services, or waiting for browser tests to finish.
+Remote control is handy when a task takes a while, such as installing Playwright browsers, starting several services, or waiting for browser tests to finish. Remote control must be enabled for your GitHub account and organization before `/remote on` can create a GitHub.com session link.
 
 <img src="images/03-remote-control-flow.png" alt="Remote control flow showing GitHub.com and GitHub Mobile steering the same active Copilot CLI session running in a terminal or codespace" width="800"/>
 
 ## Exercise: Use `/remote` to steer the session from GitHub
 
-In this exercise, you'll enable remote control for the running Copilot CLI session and use the remote UI to run the Playwright suite again. This is realistic when a validation command is running in your codespace and you need to approve the next step from another tab or device.
+In this exercise, you'll enable remote control for the running Copilot CLI session and use the remote UI to run the Playwright suite again. This is the kind of thing you do when a validation command is running in your codespace and you want to approve the next step from another tab or device.
 
 1. In the same Copilot CLI session, enter:
 
@@ -225,17 +233,18 @@ In this exercise, you'll enable remote control for the running Copilot CLI sessi
     /remote on
     ```
 
-2. Copilot CLI displays a link to open the session on GitHub.com. Open the link. You should see the same conversation that is visible in your terminal.
-3. Sign in with the same GitHub account that started the CLI session.
-4. Confirm the remote page shows the current prompt history and accepts a new message.
-5. From the remote session UI, send this prompt:
+2. If remote control is enabled for your account and organization, Copilot CLI displays a link to open the session on GitHub.com. Open the link. You should see the same conversation that is visible in your terminal.
+3. If Copilot reports that remote controlled sessions are not enabled, your organization has disabled this feature. Record that limitation, skip the rest of this exercise, and continue with the delegation exercise.
+4. Sign in with the same GitHub account that started the CLI session.
+5. Confirm the remote page shows the current prompt history and accepts a new message.
+6. From the remote session UI, send this prompt:
 
     ```text
     Run the Playwright suite again. If the app needs to start first, use the existing Playwright webServer configuration. Summarize any failures as test bug, app accessibility gap, or environment/startup issue.
     ```
 
-6. Watch the session from the browser or mobile app. If Copilot asks for permission to run commands, respond from the remote UI.
-7. Optional: if you expect to step away while the machine or codespace keeps working, keep the session marked busy:
+7. Watch the session from the browser or mobile app. If Copilot asks for permission to run commands, respond from the remote UI.
+8. Optional: if you expect to step away while the machine or codespace keeps working, keep the session marked busy:
 
     ```text
     /keep-alive busy
@@ -244,7 +253,7 @@ In this exercise, you'll enable remote control for the running Copilot CLI sessi
 > [!TIP]
 > Use `/keep-alive busy` only when your environment might idle during longer commands. If your Copilot CLI version does not recognize `/keep-alive`, keep the codespace or machine active using your instructor's environment guidance. Remote control lets you steer the session, but it cannot keep a stopped terminal session alive.
 
-8. When you are done testing remote control, enter:
+9. When you are done testing remote control, enter:
 
     ```text
     /remote off
@@ -259,7 +268,7 @@ You can also enter `/remote` without an argument to check the current status.
 
 The next exercise uses `/delegate`, which sends work to Copilot cloud agent. The cloud agent works on GitHub, creates a branch, makes commits, and opens a draft pull request.
 
-This is where the chapter shifts from local help to team workflow. You define a test backlog item, send it to the cloud agent, and review the PR like you would review a teammate's work.
+Now the work moves from local help to team workflow. You define a test backlog item, send it to the cloud agent, and review the PR like you would review a teammate's work.
 
 <img src="images/03-delegation-handoff-flow.png" alt="Delegation handoff flow showing a local branch and delegation brief sent through slash delegate to Copilot cloud agent, which opens a draft pull request for human review" width="800"/>
 
@@ -287,7 +296,9 @@ The brief should live in the repo so the prompt can point to a real artifact and
 
 ## Exercise: Use `/delegate` to offload the test backfill
 
-In this exercise, you'll create a delegation brief and send it to Copilot cloud agent. The primary job is to expand the Playwright accessibility coverage you started locally. Since the cloud agent will already be working in the test suite, you'll also ask it to backfill a few unit tests for the .NET asset service and the Python reporting service. This is a real backlog item: bounded, worth doing, and easy to verify with commands.
+In this exercise, you'll create a delegation brief and send it to Copilot cloud agent. The primary job is to expand the Playwright accessibility coverage you started locally. Since the cloud agent will already be working in the test suite, you'll also ask it to backfill a few unit tests for the .NET asset service and the Python reporting service. That gives the agent a bounded backlog item with commands that prove whether it worked.
+
+This exercise creates external GitHub state: a branch, commits, a push to your fork, a cloud agent task, and a draft pull request. Before you start, make sure `git remote -v` shows a writable fork remote and that you are ready to create those artifacts in your fork. If your clone points only to `GeekTrainer/legacy-app`, fix the remote before committing or delegating.
 
 1. Ask Copilot CLI to create a delegation brief:
 
@@ -327,7 +338,14 @@ In this exercise, you'll create a delegation brief and send it to Copilot cloud 
     - `package-lock.json`
     - `docs/delegations/test-backfill.md`
     - any narrow Astro accessibility fix, only if the tests proved one was needed
-5. After the diff summary looks right, ask Copilot to create the branch, commit, and push:
+5. Before committing, keep generated Playwright artifacts out of the handoff. Ask Copilot to clean or ignore them:
+
+    ```text
+    Remove generated Playwright run artifacts from the working tree before delegation. Do not delete source tests or config. If test-results/ or playwright-report/ exists, remove those generated folders or add the right ignore rules, then show git status again.
+    ```
+
+    The status should not include generated files such as `test-results/` or `playwright-report/`.
+6. After the diff summary looks right, ask Copilot to create the branch, commit, and push:
 
     ```text
     Create a branch named test-suite-foundation. Commit the Playwright foundation and delegation brief with the message "test: add Playwright accessibility foundation". If there is a narrow accessibility fix, use a second commit with the message "fix: address accessibility gaps found by Playwright". Then push the branch to my fork.
@@ -336,27 +354,34 @@ In this exercise, you'll create a delegation brief and send it to Copilot cloud 
 > [!WARNING]
 > Do not delegate from a dirty working tree unless you understand what Copilot is checkpointing. The cloud agent works from GitHub state, not from hidden local files.
 
-6. Use `/delegate` with the brief:
+7. Confirm the pushed branch contains the delegation brief before using `/delegate`:
 
     ```text
-    /delegate Use docs/delegations/test-backfill.md as the source of truth. Focus first on expanding the Playwright accessibility coverage started locally, then add the secondary xUnit and pytest backfill described in the brief. Keep production application code unchanged. If production behavior blocks a test, document the gap in the PR instead of fixing it. Open a draft pull request with the title "Add test suite backfill" and include the commands you ran plus their results in the PR description.
+    Verify that docs/delegations/test-backfill.md exists on the pushed test-suite-foundation branch in my fork. Use GitHub or gh to check the remote branch, not just the local working tree. Do not delegate until the brief is visible on GitHub.
     ```
 
-7. Copilot may ask to create a checkpoint commit or confirm the target repository. Review the prompt and approve only if it points to your fork.
-8. Once the cloud agent starts, Copilot CLI provides links to the agent session and the draft pull request when it is created.
-9. While the cloud agent works, continue reviewing the local Playwright results:
+    If the brief is missing from the remote branch, push the missing commit before continuing.
+8. Use `/delegate` with the brief. Include the core brief details inline too, so the cloud agent still has enough context if it starts from a different branch ref:
+
+    ```text
+    /delegate Use the pushed test-suite-foundation branch and docs/delegations/test-backfill.md as the source of truth. If the branch context does not include that file, use this brief summary: primary goal, expand Playwright accessibility coverage under tests/playwright using role and label locators for dashboard, navigation, asset list filters, and new asset form behaviors; secondary goal, add xUnit coverage for services/assets-svc covering create, read, update, delete, search, stats-by-status, and not-found edge cases, and add pytest coverage for services/reporting-svc covering warranty-expiring reports, utilization reports, and CSV import behavior. Keep production application code unchanged. If production behavior blocks a test, document the gap in the PR instead of fixing it. Open a draft pull request with the title "Add test suite backfill" and include the commands you ran plus their results in the PR description.
+    ```
+
+9. Copilot may ask to create a checkpoint commit or confirm the target repository. Review the prompt and approve only if it points to your fork. If Copilot still reports uncommitted generated artifacts, cancel the delegation, clean the working tree, and try again.
+10. Once the cloud agent starts, Copilot CLI provides links to the agent session and the draft pull request when it is created.
+11. While the cloud agent works, continue reviewing the local Playwright results:
 
     ```text
     Based on the current Playwright results, identify which ones are likely real accessibility gaps and which ones are test setup issues. Create a short note I can use during PR review.
     ```
 
-10. When the PR is ready, review it like any other PR. You can use GitHub.com, or ask Copilot CLI to help inspect it:
+12. When the PR is ready, review it like any other PR. You can use GitHub.com, or ask Copilot CLI to help inspect it:
 
     ```text
     Open the draft PR created by the delegated test backfill. Summarize the changed files, the tests added, the commands reported by the agent, and any production code changes.
     ```
 
-11. Review the PR against this checklist:
+13. Review the PR against this checklist:
     - The PR targets your fork and the expected branch.
     - The PR description references `docs/delegations/test-backfill.md`.
     - Playwright tests live under `tests/playwright/`.
@@ -365,19 +390,25 @@ In this exercise, you'll create a delegation brief and send it to Copilot cloud 
     - The agent did not change production code unless it clearly explained why.
     - The PR includes test evidence, including commands and results.
     - Any skipped or failing tests are justified and easy to find.
-12. If the PR needs changes, comment with specific feedback:
+14. If the PR is blocked because it cannot find the delegation brief, comment with the branch and file location:
+
+    ```text
+    Please revise using the pushed test-suite-foundation branch as context. The source-of-truth brief is at docs/delegations/test-backfill.md on that branch. Use the brief to add the Playwright, xUnit, and pytest backfill, keep production code unchanged, and update the PR description with command output.
+    ```
+
+15. If the PR needs changes, comment with specific feedback:
 
     ```text
     Please revise the Playwright tests to use role and label locators instead of CSS selectors. Keep production code unchanged. Update the PR description with the new test command output.
     ```
 
-13. Before merging, make sure the required test tools are available. For the reporting service, the dev dependencies include `pytest`. If `pytest` is missing, install the service with its dev extras from the repository root:
+16. Before merging a PR that includes the reporting service test backfill, make sure the required test tools are available. For the reporting service, the dev dependencies include `pytest`. If `pytest` is missing, install the service with its dev extras from the repository root:
 
     ```bash
     pip install -e "services/reporting-svc[dev]"
     ```
 
-14. Run or verify the main commands:
+17. Run or verify the main commands after the delegated PR has added the test backfill:
 
     ```bash
     npm run test:e2e
@@ -385,7 +416,9 @@ In this exercise, you'll create a delegation brief and send it to Copilot cloud 
     cd services/reporting-svc && pytest
     ```
 
-15. Depending on your environment, you may also run:
+    If the delegated PR is still blocked or has not added reporting tests yet, do not treat `pytest` collecting zero tests as a final validation failure. Record it as a sign that the delegated backfill is incomplete and keep the PR in draft.
+
+18. Depending on your environment, you may also run:
 
     ```bash
     npm --prefix services/web run build
@@ -395,18 +428,18 @@ At the end of this section, your fork should contain the Playwright foundation, 
 
 ## Summary
 
-You used Copilot CLI in three different ways in this section. First, you worked locally to create the Playwright foundation and validate the accessibility work. Then you used `/remote` to steer that same session from GitHub. Finally, you used `/delegate` to send a scoped test backfill to Copilot cloud agent.
+You used Copilot CLI in three different ways in this section. First, you worked locally to create the Playwright foundation and validate the accessibility work. Then you tried `/remote` to steer that same session from GitHub. Finally, you used `/delegate` to send a scoped test backfill to Copilot cloud agent.
 
 In this lesson, you learned:
 
 - how to start a Playwright suite for AssetTrack.
 - how to read early browser test failures without guessing.
 - how to turn a failing accessibility test into a narrow product improvement when the evidence calls for it.
-- how `/remote` gives you remote control of an active CLI session.
+- how `/remote` can give you remote control of an active CLI session.
 - how `/delegate` sends scoped work to Copilot cloud agent.
 - how to write and review a useful delegation brief.
 
-Next, you'll **shape Copilot CLI's lifecycle with hooks** so tests, builds, and lint checks run automatically as Copilot edits the project in [Section 4][next-lesson].
+Next, you'll shape Copilot CLI's lifecycle with hooks so tests, builds, and lint checks run automatically as Copilot edits the project in [Section 4][next-lesson].
 
 ## Resources
 
