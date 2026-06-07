@@ -198,9 +198,9 @@ If Copilot misses the empty reporting tests folder or suggests putting Playwrigh
     Fix only the accessibility gaps identified by the failing Playwright tests. Keep the changes narrow: associate labels with their controls, add missing landmark labels if needed, and avoid visual redesigns. After the fix, rerun npm run test:e2e and summarize the before/after result.
     ```
 
-6. Review the diff. You want either a passing validation result or a small app change backed by a test result. Commit the Playwright foundation. Commit the accessibility fix only if one was needed.
+6. Review the diff. You want either a passing validation result or a small app change backed by a test result. Do not commit yet. You'll create the handoff branch and commit the local work after you add the delegation brief.
 
-    Suggested commit messages:
+    You'll use these commit messages later:
 
     ```text
     test: add Playwright accessibility foundation
@@ -348,7 +348,7 @@ This exercise creates external GitHub state: a branch, commits, a push to your A
 6. After the diff summary looks right, ask Copilot to create the branch, commit, and push:
 
     ```text
-    Create a branch named test-suite-foundation. Commit the Playwright foundation and delegation brief with the message "test: add Playwright accessibility foundation". If there is a narrow accessibility fix, use a second commit with the message "fix: address accessibility gaps found by Playwright". Then push the branch to my AssetTrack repository.
+    Create a branch named test-suite-foundation. Commit the Playwright foundation with the message "test: add Playwright accessibility foundation". If there is a narrow accessibility fix, use a second commit with the message "fix: address accessibility gaps found by Playwright". Commit docs/delegations/test-backfill.md with the message "docs: add test backfill delegation brief". Then push the branch to my AssetTrack repository.
     ```
 
 > [!WARNING]
@@ -369,6 +369,7 @@ This exercise creates external GitHub state: a branch, commits, a push to your A
 
 9. Copilot may ask to create a checkpoint commit or confirm the target repository. Review the prompt and approve only if it points to your AssetTrack repository. If Copilot still reports uncommitted generated artifacts, cancel the delegation, clean the working tree, and try again.
 10. Once the cloud agent starts, Copilot CLI provides links to the agent session and the draft pull request when it is created.
+    If `/delegate` reports that Copilot cloud agent is unavailable, disabled, or blocked by permissions, record that limitation and keep the `test-suite-foundation` branch as the handoff artifact. You can still use the delegation brief later when cloud agent access is available.
 11. While the cloud agent works, continue reviewing the local Playwright results:
 
     ```text
