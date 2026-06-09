@@ -1,9 +1,20 @@
-# Section 3 — Enhancing the test suite with remote and delegation
+# Module 3 — Enhancing the test suite with remote and delegation
 
 | [← Previous: Building an AI infrastructure foundation][previous-lesson] | [Next: Shaping Copilot CLI's lifecycle with hooks →][next-lesson] |
 |:--|--:|
 
-The accessibility and contribution infrastructure from [Section 2][previous-lesson] is useful only if the team can prove it keeps working. This section turns the first accessibility checks into a Playwright-backed feedback loop, uses `/remote` to steer the active CLI session from GitHub, and hands a bounded test backfill to Copilot cloud agent with `/delegate`.
+The accessibility and contribution infrastructure from [Module 2][previous-lesson] is useful only if the team can prove it keeps working. This module turns the first accessibility checks into a Playwright-backed feedback loop, uses `/remote` to steer the active CLI session remotely, and hands a bounded test backfill to Copilot cloud agent with `/delegate`.
+
+> [!NOTE]
+> **Starting state**: If you're jumping directly to this module without completing the previous modules, you'll need to:
+> 1. Get your AssetTrack repository in place. Setup instructions can be found in the [course prerequisites][prerequisites].
+> 2. From the AssetTrack repository root, run the following command to apply the catch up assets:
+>
+> ```bash
+> node scripts/catchup.mjs
+   --assets-repo-url https://github.com/GeekTrainer/advanced-copilot-cli \
+   --assets-path assets/03
+> ```
 
 ## What you will learn
 
@@ -15,19 +26,6 @@ The accessibility and contribution infrastructure from [Section 2][previous-less
 - How to write and review a delegation brief before trusting an agent-created pull request.
 
 ## Scenario
-
-> [!NOTE]
-> **Starting state**: the Section 2 instructions, templates, `accessibility-updater` custom agent, and `make-repo-contribution` skill are in place. **Implementation exercises** — you'll add a Playwright foundation, create a delegation brief, try remote control, and delegate a bounded test backfill. Production code changes should happen only when a failing accessibility test proves a narrow gap.
-
-If you're jumping directly to this section, start from your own AssetTrack repository, complete the [prerequisites][prerequisites], and apply the Section 2 catch-up assets from this course repository:
-
-```bash
-bash assets/03/section-02-catchup/scripts/apply-section-02-catchup.sh /path/to/your/AssetTrack
-```
-
-```powershell
-pwsh -File assets/03/section-02-catchup/scripts/apply-section-02-catchup.ps1 -TargetRepo C:\path\to\your\AssetTrack
-```
 
 AssetTrack already has a few backend smoke tests, but the UI has no browser coverage yet. That makes accessibility work hard to trust. You'll use Copilot CLI to scaffold a small Playwright suite, read the first failures carefully, and make only the changes the evidence supports. Once the local foundation is reviewable, you'll write a delegation brief and send the broader test backfill to Copilot cloud agent.
 
@@ -45,14 +43,14 @@ Talking points:
 
 Talking points:
 
-- **Goal**: create the first browser test signal for the AssetTrack UI and use it to validate the accessibility work from Section 2.
+- **Goal**: create the first browser test signal for the AssetTrack UI and use it to validate the accessibility work from Module 2.
 - **Files/areas touched**:
   - `playwright.config.ts`
   - `tests/playwright/accessibility.spec.ts`
   - root `package.json` and lockfile updates
   - narrow Astro accessibility files only if the tests prove a real gap
 - **Steps**:
-  - Open your AssetTrack repository in the course codespace or devcontainer. Confirm `git remote -v` points to your writable AssetTrack repository, not only to `GeekTrainer/legacy-app`.
+  - Open your AssetTrack repository in the course codespace or devcontainer. Confirm `git remote -v` points to your writable AssetTrack repository.
   - Confirm dependencies are installed. The devcontainer usually runs `npm install && npm run install:all`; if package errors appear, run those commands yourself.
   - Start the app with `npm run dev`, open `http://localhost:4321` or the forwarded Codespaces URL, and confirm the AssetTrack UI loads. Stop the dev server before continuing.
   - Start Copilot CLI from the repository root with `copilot`.
@@ -87,7 +85,7 @@ Talking points:
     Run the Playwright tests and summarize the result. If any tests fail, classify each failure as one of: test bug, app accessibility gap, or environment/startup issue. Include the command run, how many tests were found, the pass/fail count, each failure category, and the next action you recommend. Do not change production code yet.
     ```
 
-  - If the setup is broken, fix only `playwright.config.ts`, `tests/playwright/**`, and package files. If the failure proves a real accessibility gap, switch to the `accessibility-updater` agent from Section 2 and make the narrowest app fix. If Copilot does not automatically switch to the right agent, run `/agent`, select `accessibility-updater`, and then send the prompt.
+  - If the setup is broken, fix only `playwright.config.ts`, `tests/playwright/**`, and package files. If the failure proves a real accessibility gap, switch to the `accessibility-updater` agent from Module 2 and make the narrowest app fix. If Copilot does not automatically switch to the right agent, run `/agent`, select `accessibility-updater`, and then send the prompt.
   - Review the diff before committing. The local result should be a Playwright foundation, a test result, and maybe a small accessibility fix backed by that result.
 - **How to verify**:
   - `npx playwright test --list` discovers the browser tests under `tests/playwright/`.
@@ -200,13 +198,13 @@ Talking points:
 You should now have:
 
 - A Playwright foundation for the AssetTrack UI.
-- A validation result for the Section 2 accessibility work.
+- A validation result for the Module 2 accessibility work.
 - Any narrow accessibility fix that was justified by a failing browser test.
 - A delegation brief at `docs/delegations/test-backfill.md`.
 - A pushed handoff branch and, when `/delegate` is available, a draft PR from Copilot cloud agent expanding the test suite.
 - A clearer sense of when to keep Copilot CLI work local, steer it remotely, or delegate it to cloud agent.
 
-Next, you'll use the test commands created here to shape Copilot CLI's lifecycle with hooks so tests, builds, and lint checks run automatically as Copilot edits the project in [Section 4][next-lesson].
+Next, you'll use the test commands created here to shape Copilot CLI's lifecycle with hooks so tests, builds, and lint checks run automatically as Copilot edits the project in [Module 4][next-lesson].
 
 ## Resources
 
