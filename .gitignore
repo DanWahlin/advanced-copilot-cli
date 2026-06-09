@@ -1,5 +1,3 @@
-.env
-
 # Build artifacts
 target/
 *.class
@@ -26,8 +24,3 @@ venv/
 
 # Node (in case future tooling)
 node_modules/
-
-# Module runner workspaces
-module-runs/
-issues/
-assets/
